@@ -77,7 +77,6 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
     }
 
     private void processEventsListener(TypeElement e) {
-        String listenerName = e.getQualifiedName().toString();
         TypeName listenerClassTypeName = TypeName.get(e.asType());
 
         Name packageName = elements.getPackageOf(e).getQualifiedName();
@@ -88,10 +87,13 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
                 .addModifiers(Modifier.PUBLIC)
                 .addSuperinterface(listenerClassTypeName)
                 .addField(EventsListenerProvider.class, "mListenerProvider", Modifier.PRIVATE)
+                .addField(String.class, "mTag", Modifier.PRIVATE)
                 .addMethod(MethodSpec.constructorBuilder()
                         .addModifiers(Modifier.PUBLIC)
                         .addParameter(EventsListenerProvider.class, "listenerProvider")
+                        .addParameter(String.class, "tag")
                         .addStatement("this.$N = $N", "mListenerProvider", "listenerProvider")
+                        .addStatement("this.$N = $N", "mTag", "tag")
                         .build());
 
         for (Element enclosedElement : e.getEnclosedElements()) {
@@ -113,8 +115,8 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
                 invokeStatement.append(")");
 
                 classBuilder.addMethod(MethodSpec.overriding(element)
-                        .addStatement("$T listeners = $N.getListenersByClass($T.class)",
-                                listOfListeners, "mListenerProvider", listenerClassTypeName)
+                        .addStatement("$T listeners = $N.getListenersByClass($T.class, $N)",
+                                listOfListeners, "mListenerProvider", listenerClassTypeName, "mTag")
                         .beginControlFlow("for ($T listener : listeners)", listenerClassTypeName)
                         .addStatement(invokeStatement.toString())
                         .endControlFlow()

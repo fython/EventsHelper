@@ -6,4 +6,6 @@ public interface EventsListenerProvider {
 
     <T> List<T> getListenersByClass(Class<T> listenerClass);
 
+    <T> List<T> getListenersByClass(Class<T> listenerClass, String tag);
+
 }
