@@ -1,10 +1,12 @@
-package moe.feng.common.eventshelper;
+package moe.feng.common.eventshelper.sample;
 
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+
+import moe.feng.common.eventshelper.EventsHelper;
 
 public class SampleActivity extends Activity {
 
@@ -42,9 +44,7 @@ public class SampleActivity extends Activity {
     @Override
     protected void onStop() {
         super.onStop();
-        EventsHelper.unregisterListener(mListenerA);
-        EventsHelper.unregisterListener(mListenerB);
-        EventsHelper.unregisterListener(mListenerC);
+        EventsHelper.unregisterListeners(mListenerA, mListenerB, mListenerC);
     }
 
 }

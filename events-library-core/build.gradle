@@ -28,5 +28,5 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation project(":events-annotation")
-    implementation 'androidx.annotation:annotation:1.0.2'
+    compileOnly 'androidx.annotation:annotation:1.0.2'
 }

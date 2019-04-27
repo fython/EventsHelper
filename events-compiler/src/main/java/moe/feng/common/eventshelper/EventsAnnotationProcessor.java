@@ -1,6 +1,9 @@
 package moe.feng.common.eventshelper;
 
+import androidx.annotation.RestrictTo;
+
 import com.google.auto.service.AutoService;
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
@@ -26,7 +29,6 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.Elements;
@@ -46,6 +48,9 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
     static class ClassNames {
 
         static final ClassName List = ClassName.get("java.util", "List");
+
+        static final ClassName EventsHelper = ClassName.get(
+                "moe.feng.common.eventshelper", "EventsHelper");
 
     }
 
@@ -77,22 +82,21 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
     }
 
     private void processEventsListener(TypeElement e) {
+        String listenerClassName = e.getQualifiedName().toString();
         TypeName listenerClassTypeName = TypeName.get(e.asType());
 
-        Name packageName = elements.getPackageOf(e).getQualifiedName();
-
-        String helperClassName = e.getSimpleName().toString() + "$$Helper";
+        String helperClassName = "Helper$$" + listenerClassName.replace(".", "_");
 
         TypeSpec.Builder classBuilder = TypeSpec.classBuilder(helperClassName)
-                .addModifiers(Modifier.PUBLIC)
+                .addModifiers(Modifier.FINAL)
                 .addSuperinterface(listenerClassTypeName)
-                .addField(EventsListenerProvider.class, "mListenerProvider", Modifier.PRIVATE)
+                .addAnnotation(AnnotationSpec.builder(RestrictTo.class)
+                        .addMember("value", "$L", "RestrictTo.Scope.LIBRARY_GROUP")
+                        .build())
                 .addField(String.class, "mTag", Modifier.PRIVATE)
                 .addMethod(MethodSpec.constructorBuilder()
                         .addModifiers(Modifier.PUBLIC)
-                        .addParameter(EventsListenerProvider.class, "listenerProvider")
                         .addParameter(String.class, "tag")
-                        .addStatement("this.$N = $N", "mListenerProvider", "listenerProvider")
                         .addStatement("this.$N = $N", "mTag", "tag")
                         .build());
 
@@ -115,8 +119,8 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
                 invokeStatement.append(")");
 
                 classBuilder.addMethod(MethodSpec.overriding(element)
-                        .addStatement("$T listeners = $N.getListenersByClass($T.class, $N)",
-                                listOfListeners, "mListenerProvider", listenerClassTypeName, "mTag")
+                        .addStatement("$T listeners = $T.getListenersByClass($T.class, $N)",
+                                listOfListeners, ClassNames.EventsHelper, listenerClassTypeName, "mTag")
                         .beginControlFlow("for ($T listener : listeners)", listenerClassTypeName)
                         .addStatement(invokeStatement.toString())
                         .endControlFlow()
@@ -125,7 +129,7 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
         }
 
         try {
-            JavaFile.builder(packageName.toString(), classBuilder.build())
+            JavaFile.builder("moe.feng.common.eventshelper", classBuilder.build())
                     .build()
                     .writeTo(filer);
         } catch (IOException e1) {

@@ -15,27 +15,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
+
 public final class EventsHelper {
+
+    private static final String PACKAGE_NAME = requireNonNull(EventsHelper.class.getPackage()).getName();
 
     private static final HashMap<Object, String> mListeners = new HashMap<>();
 
     private static final Map<Pair<String, String>, Object> mHelperCache = new HashMap<>();
 
-    private static final EventsListenerProvider sListenerProvider = new EventsListenerProvider() {
-        @Override
-        public <T> List<T> getListenersByClass(Class<T> listenerClass) {
-            return EventsHelper.getListenersByClass(listenerClass);
-        }
-
-        @Override
-        public <T> List<T> getListenersByClass(Class<T> listenerClass, String tag) {
-            return EventsHelper.getListenersByClass(listenerClass, tag);
-        }
-    };
-
     private static final boolean sUseProxyInterface = false;
 
-    private static <T> List<T> getListenersByClass(Class<T> listenerClass) {
+    static <T> List<T> getListenersByClass(Class<T> listenerClass) {
         List<T> list = new ArrayList<>();
         for (Object listener : mListeners.keySet()) {
             if (listenerClass.isInstance(listener)) {
@@ -45,7 +37,7 @@ public final class EventsHelper {
         return list;
     }
 
-    private static <T> List<T> getListenersByClass(Class<T> listenerClass, String tag) {
+    static <T> List<T> getListenersByClass(Class<T> listenerClass, String tag) {
         List<T> list = new ArrayList<>();
         for (Map.Entry<Object, String> entry : mListeners.entrySet()) {
             if (listenerClass.isInstance(entry.getKey())) {
@@ -58,20 +50,35 @@ public final class EventsHelper {
         return list;
     }
 
-    public static EventsListenerProvider getEventsListenerProvider() {
-        return sListenerProvider;
-    }
-
     public static void registerListener(@NonNull Object listener) {
+        requireNonNull(listener, "Listener argument cannot be null.");
         mListeners.put(listener, null);
     }
 
+    public static void registerListeners(@NonNull Object... listeners) {
+        for (Object listener : listeners) {
+            registerListener(listener);
+        }
+    }
+
     public static void registerListener(@NonNull Object listener, @Nullable String tag) {
+        requireNonNull(listener, "Listener argument cannot be null.");
         mListeners.put(listener, tag);
     }
 
     public static void unregisterListener(@NonNull Object listener) {
+        requireNonNull(listener, "Listener argument cannot be null.");
         mListeners.remove(listener);
+    }
+
+    public static void unregisterListeners(@NonNull Object... listeners) {
+        for (Object listener : listeners) {
+            mListeners.remove(listener);
+        }
+    }
+
+    public static void clearAllListeners() {
+        mListeners.clear();
     }
 
     public static <T> T of(@NonNull Class<T> listenerClass) {
@@ -84,16 +91,17 @@ public final class EventsHelper {
         if (sUseProxyInterface) {
             return proxyOf(listenerClass, tag);
         } else {
-            String helperClassName = listenerClass.getCanonicalName() + "$$Helper";
-            Pair<String, String> key = Pair.create(helperClassName, tag);
+            String listenerClassName = listenerClass.getCanonicalName();
+            Pair<String, String> key = Pair.create(listenerClassName, tag);
             if (mHelperCache.containsKey(key)) {
-                return (T) mHelperCache.get(helperClassName);
+                return (T) mHelperCache.get(key);
             } else {
                 try {
+                    String helperClassName = PACKAGE_NAME + ".Helper$$"
+                            + listenerClassName.replace(".", "_");
                     Class helperClass = Class.forName(helperClassName);
-                    Constructor<T> constructor = helperClass.getDeclaredConstructor(
-                            EventsListenerProvider.class, String.class);
-                    T instance = constructor.newInstance(getEventsListenerProvider(), tag);
+                    Constructor<T> constructor = helperClass.getDeclaredConstructor(String.class);
+                    T instance = constructor.newInstance(tag);
                     mHelperCache.put(key, instance);
                     return instance;
                 } catch (Exception e) {
