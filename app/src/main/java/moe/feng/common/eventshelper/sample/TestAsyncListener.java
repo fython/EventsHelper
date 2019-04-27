@@ -4,9 +4,9 @@ import moe.feng.common.eventshelper.EventsListener;
 import moe.feng.common.eventshelper.EventsOnThread;
 
 @EventsListener
-public interface TestListener {
+public interface TestAsyncListener {
 
-    @EventsOnThread(EventsOnThread.MAIN_THREAD)
+    @EventsOnThread(EventsOnThread.NEW_THREAD)
     void onButtonClick(long time);
 
 }

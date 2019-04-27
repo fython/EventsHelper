@@ -1,5 +1,8 @@
 apply plugin: 'com.android.library'
 
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+
 android {
     compileSdkVersion 28
 
@@ -28,5 +31,33 @@ android {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation project(":events-annotation")
-    compileOnly 'androidx.annotation:annotation:1.0.2'
+    annotationProcessor project(":events-compiler")
+    implementation 'androidx.annotation:annotation:1.0.2'
 }
+
+ext {
+    publishedGroupId = 'moe.feng.common.eventshelper'
+
+    bintrayRepo = 'EventsHelper'
+    bintrayName = project.name
+
+    libraryName = 'EventsHelper Core'
+    artifact = project.name
+
+    libraryDescription = 'EventsHelper Core'
+
+    siteUrl = 'https://github.com/fython/EventsHelper'
+    gitUrl = 'https://github.com/fython/EventsHelper.git'
+
+    libraryVersion = project.rootProject.version
+
+    developerId = 'fython'
+    developerName = 'Fung Gwo'
+    developerEmail = 'fythonx@gmail.com'
+
+    licenseName = 'The Apache Software License, Version 2.0'
+    licenseUrl = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+    allLicenses = ["Apache-2.0"]
+}
+
+apply from: project.rootProject.file('bintray.gradle')

@@ -31,6 +31,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
@@ -46,8 +47,6 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
     }
 
     static class ClassNames {
-
-        static final ClassName List = ClassName.get("java.util", "List");
 
         static final ClassName EventsHelper = ClassName.get(
                 "moe.feng.common.eventshelper", "EventsHelper");
@@ -104,10 +103,23 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
             if (enclosedElement.getKind() == ElementKind.METHOD) {
                 ExecutableElement element = (ExecutableElement) enclosedElement;
 
-                TypeName listOfListeners = ParameterizedTypeName.get(
-                        ClassNames.List, listenerClassTypeName);
+                if (element.getReturnType().getKind() != TypeKind.VOID) {
+                    messager.printMessage(Diagnostic.Kind.ERROR,
+                            "Method " + element + " in " + listenerClassName
+                                    + " class doesn't return void type.");
+                }
 
-                StringBuilder invokeStatement = new StringBuilder("listener.");
+                TypeName listOfListeners = ParameterizedTypeName.get(
+                        ClassName.get(List.class), listenerClassTypeName);
+
+                EventsOnThread threadAnnotation = element.getAnnotation(EventsOnThread.class);
+                int threadType = EventsOnThread.CURRENT_THREAD;
+                if (threadAnnotation != null) {
+                    threadType = threadAnnotation.value();
+                }
+
+                StringBuilder invokeStatement = new StringBuilder();
+                invokeStatement.append("EventsHelper.scheduleRunnable(() -> listener.");
                 invokeStatement.append(element.getSimpleName()).append("(");
                 List<? extends VariableElement> parameters = element.getParameters();
                 if (parameters != null && !parameters.isEmpty()) {
@@ -116,7 +128,7 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
                     }
                     invokeStatement.setLength(invokeStatement.length() - 2);
                 }
-                invokeStatement.append(")");
+                invokeStatement.append("), ").append(threadType).append(")");
 
                 classBuilder.addMethod(MethodSpec.overriding(element)
                         .addStatement("$T listeners = $T.getListenersByClass($T.class, $N)",

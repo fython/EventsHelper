@@ -1,5 +1,7 @@
 package moe.feng.common.eventshelper;
 
+import android.content.Context;
+import android.os.Handler;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
@@ -19,43 +21,30 @@ import static java.util.Objects.requireNonNull;
 
 public final class EventsHelper {
 
+    private static final String TAG = EventsHelper.class.getSimpleName();
     private static final String PACKAGE_NAME = requireNonNull(EventsHelper.class.getPackage()).getName();
 
-    private static final HashMap<Object, String> mListeners = new HashMap<>();
+    private static final HashMap<Object, String> sListeners = new HashMap<>();
 
-    private static final Map<Pair<String, String>, Object> mHelperCache = new HashMap<>();
+    private static final Map<Pair<String, String>, Object> sHelperCache = new HashMap<>();
+
+    private static Handler sMainHandler;
 
     private static final boolean sUseProxyInterface = false;
 
-    static <T> List<T> getListenersByClass(Class<T> listenerClass) {
-        List<T> list = new ArrayList<>();
-        for (Object listener : mListeners.keySet()) {
-            if (listenerClass.isInstance(listener)) {
-                list.add((T) listener);
-            }
+    public static void init(@NonNull Context context) {
+        requireNonNull(context);
+        if (sMainHandler == null) {
+            sMainHandler = new Handler(context.getMainLooper());
         }
-        return list;
-    }
-
-    static <T> List<T> getListenersByClass(Class<T> listenerClass, String tag) {
-        List<T> list = new ArrayList<>();
-        for (Map.Entry<Object, String> entry : mListeners.entrySet()) {
-            if (listenerClass.isInstance(entry.getKey())) {
-                if (tag != null && !Objects.equals(tag, entry.getValue())) {
-                    continue;
-                }
-                list.add((T) entry.getKey());
-            }
-        }
-        return list;
     }
 
     public static void registerListener(@NonNull Object listener) {
-        requireNonNull(listener, "Listener argument cannot be null.");
-        mListeners.put(listener, null);
+        registerListener(listener, null);
     }
 
     public static void registerListeners(@NonNull Object... listeners) {
+        requireNonNull(listeners, "Listeners argument cannot be null.");
         for (Object listener : listeners) {
             registerListener(listener);
         }
@@ -63,22 +52,24 @@ public final class EventsHelper {
 
     public static void registerListener(@NonNull Object listener, @Nullable String tag) {
         requireNonNull(listener, "Listener argument cannot be null.");
-        mListeners.put(listener, tag);
+        validateListenerInstance(listener);
+        sListeners.put(listener, tag);
     }
 
     public static void unregisterListener(@NonNull Object listener) {
         requireNonNull(listener, "Listener argument cannot be null.");
-        mListeners.remove(listener);
+        sListeners.remove(listener);
     }
 
     public static void unregisterListeners(@NonNull Object... listeners) {
+        requireNonNull(listeners, "Listeners argument cannot be null.");
         for (Object listener : listeners) {
-            mListeners.remove(listener);
+            sListeners.remove(listener);
         }
     }
 
     public static void clearAllListeners() {
-        mListeners.clear();
+        sListeners.clear();
     }
 
     public static <T> T of(@NonNull Class<T> listenerClass) {
@@ -93,8 +84,8 @@ public final class EventsHelper {
         } else {
             String listenerClassName = listenerClass.getCanonicalName();
             Pair<String, String> key = Pair.create(listenerClassName, tag);
-            if (mHelperCache.containsKey(key)) {
-                return (T) mHelperCache.get(key);
+            if (sHelperCache.containsKey(key)) {
+                return (T) sHelperCache.get(key);
             } else {
                 try {
                     String helperClassName = PACKAGE_NAME + ".Helper$$"
@@ -102,12 +93,41 @@ public final class EventsHelper {
                     Class helperClass = Class.forName(helperClassName);
                     Constructor<T> constructor = helperClass.getDeclaredConstructor(String.class);
                     T instance = constructor.newInstance(tag);
-                    mHelperCache.put(key, instance);
+                    sHelperCache.put(key, instance);
                     return instance;
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
             }
+        }
+    }
+
+    static <T> List<T> getListenersByClass(Class<T> listenerClass) {
+        return getListenersByClass(listenerClass, null);
+    }
+
+    static <T> List<T> getListenersByClass(Class<T> listenerClass, String tag) {
+        List<T> list = new ArrayList<>();
+        for (Map.Entry<Object, String> entry : sListeners.entrySet()) {
+            if (listenerClass.isInstance(entry.getKey())) {
+                if (tag != null && !Objects.equals(tag, entry.getValue())) {
+                    continue;
+                }
+                list.add((T) entry.getKey());
+            }
+        }
+        return list;
+    }
+
+    static void scheduleRunnable(Runnable runnable, @EventsOnThread.ThreadType int threadType) {
+        if (threadType == EventsOnThread.CURRENT_THREAD) {
+            runnable.run();
+        } else if (threadType == EventsOnThread.NEW_THREAD) {
+            new Thread(runnable).start();
+        } else if (threadType == EventsOnThread.MAIN_THREAD) {
+            requireNonNull(sMainHandler, "You should call EventsHelper#init(Context) " +
+                    "before calling methods on main thread");
+            sMainHandler.post(runnable);
         }
     }
 
@@ -120,6 +140,26 @@ public final class EventsHelper {
     private static <T> void validateListenerInterface(Class<T> listenerClass) {
         if (!listenerClass.isInterface()) {
             throw new IllegalArgumentException("API declarations must be interfaces.");
+        }
+
+        if (listenerClass.getAnnotation(EventsListener.class) == null) {
+            throw new IllegalArgumentException("Objects registering should be " +
+                    "annotated with @EventsListener");
+        }
+    }
+
+    private static <T> void validateListenerInstance(T listener) {
+        Class<?>[] interfaces = listener.getClass().getInterfaces();
+        boolean implementedEventsListener = false;
+        for (Class<?> interfaceClass : interfaces) {
+            implementedEventsListener = interfaceClass.getAnnotation(EventsListener.class) != null;
+            if (implementedEventsListener) {
+                break;
+            }
+        }
+        if (!implementedEventsListener) {
+            throw new IllegalArgumentException(
+                    "This listener isn't annotated with EventsListener.");
         }
     }
 
@@ -136,7 +176,18 @@ public final class EventsHelper {
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
             for (Object listener : getListenersByClass(listenerClass, tag)) {
-                method.invoke(listener, args);
+                EventsOnThread annotation = method.getAnnotation(EventsOnThread.class);
+                int threadType = EventsOnThread.CURRENT_THREAD;
+                if (annotation != null) {
+                    threadType = annotation.value();
+                }
+                EventsHelper.scheduleRunnable(() -> {
+                    try {
+                        method.invoke(listener, args);
+                    } catch (Exception e) {
+                        throw new RuntimeException();
+                    }
+                }, threadType);
             }
             return null;
         }
