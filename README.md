@@ -14,11 +14,12 @@ allprojects {
 }
 
 dependencies {
-    implementation 'moe.feng.common.eventshelper:event-library-core:latest-version'
-    annotationProcessor 'moe.feng.common.eventshelper:event-compiler:latest-version'
+    implementation 'moe.feng.common.eventshelper:events-library-core:1.0.0-alpha3'
+    annotationProcessor 'moe.feng.common.eventshelper:events-compiler:1.0.0-alpha3'
     
     // For Kotlin developers, please use 'kapt' instead of 'annotationProcessor'
-    // kapt 'moe.feng.common.eventshelper:event-compiler:latest-version'
+    // kapt 'moe.feng.common.eventshelper:events-compiler:1.0.0-alpha3'
+    // implementation 'moe.feng.common.eventshelper:events-library-ktx:1.0.0-alpha3'
 }
 ```
 
