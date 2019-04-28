@@ -65,11 +65,17 @@ class SampleActivity : Activity() {
                 mListenerB to "B",
                 mListenerC to "C"
         )
+        // Java style
+        // mEventsHelper.registerListener(mListenerA, "A")
+        // mEventsHelper.registerListener(mListenerB, "B")
+        // mEventsHelper.registerListener(mListenerC, "C")
     }
 
     override fun onStop() {
         super.onStop()
         mEventsHelper.listeners -= listOf(mListenerA, mListenerB, mListenerC)
+        // Java style
+        // mEventsHelper.unregisterListeners(mListenerA, mListenerB, mListenerC)
     }
 
 }
