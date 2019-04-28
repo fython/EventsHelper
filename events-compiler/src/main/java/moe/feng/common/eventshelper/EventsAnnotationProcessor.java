@@ -35,6 +35,9 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
+/**
+ * @author Fung Gwo (fythonx@gmail.com)
+ */
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 @SupportedAnnotationTypes("moe.feng.common.eventshelper.EventsListener")
 @AutoService(Processor.class)
@@ -81,11 +84,16 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
     }
 
     private void processEventsListener(TypeElement e) {
+        // Prepare constants
         String listenerClassName = e.getQualifiedName().toString();
         TypeName listenerClassTypeName = TypeName.get(e.asType());
+        TypeName listOfListeners = ParameterizedTypeName.get(
+                ClassName.get(List.class), listenerClassTypeName);
 
+        // Define helper class name
         String helperClassName = "Helper$$" + listenerClassName.replace(".", "_");
 
+        // Create fields and constructors definition of helper class
         TypeSpec.Builder classBuilder = TypeSpec.classBuilder(helperClassName)
                 .addModifiers(Modifier.FINAL)
                 .addSuperinterface(listenerClassTypeName)
@@ -93,33 +101,49 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
                         .addMember("value", "$L", "RestrictTo.Scope.LIBRARY_GROUP")
                         .build())
                 .addField(String.class, "mTag", Modifier.PRIVATE)
+                .addField(ClassNames.EventsHelper, "mEventsHelper", Modifier.PRIVATE)
                 .addMethod(MethodSpec.constructorBuilder()
-                        .addModifiers(Modifier.PUBLIC)
                         .addParameter(String.class, "tag")
+                        .addParameter(ClassNames.EventsHelper, "eventsHelper")
                         .addStatement("this.$N = $N", "mTag", "tag")
+                        .addStatement("this.$N = $N", "mEventsHelper", "eventsHelper")
                         .build());
 
+        // Implement methods of listener interface
         for (Element enclosedElement : e.getEnclosedElements()) {
             if (enclosedElement.getKind() == ElementKind.METHOD) {
                 ExecutableElement element = (ExecutableElement) enclosedElement;
 
+                // Check if this method should be ignored
+                Ignore ignoreAnnotation = element.getAnnotation(Ignore.class);
+                if (ignoreAnnotation != null) {
+                    classBuilder.addMethod(MethodSpec.overriding(element)
+                            .addStatement("throw new $T($S)",
+                                    UnsupportedOperationException.class,
+                                    "This method is ignored. "
+                                            + "If you want to call this method by helpers, "
+                                            + "please remove @Ignore annotation from interface.")
+                            .build());
+                    continue;
+                }
+
+                // Methods to implement should returns void type
                 if (element.getReturnType().getKind() != TypeKind.VOID) {
                     messager.printMessage(Diagnostic.Kind.ERROR,
-                            "Method " + element + " in " + listenerClassName
+                            "This method in " + listenerClassName
                                     + " class doesn't return void type.");
                 }
 
-                TypeName listOfListeners = ParameterizedTypeName.get(
-                        ClassName.get(List.class), listenerClassTypeName);
-
+                // Get when this method should be called
                 EventsOnThread threadAnnotation = element.getAnnotation(EventsOnThread.class);
                 int threadType = EventsOnThread.CURRENT_THREAD;
                 if (threadAnnotation != null) {
                     threadType = threadAnnotation.value();
                 }
 
+                // Create schedule runnable statement
                 StringBuilder invokeStatement = new StringBuilder();
-                invokeStatement.append("EventsHelper.scheduleRunnable(() -> listener.");
+                invokeStatement.append("mEventsHelper.scheduleRunnable(() -> listener.");
                 invokeStatement.append(element.getSimpleName()).append("(");
                 List<? extends VariableElement> parameters = element.getParameters();
                 if (parameters != null && !parameters.isEmpty()) {
@@ -131,8 +155,8 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
                 invokeStatement.append("), ").append(threadType).append(")");
 
                 classBuilder.addMethod(MethodSpec.overriding(element)
-                        .addStatement("$T listeners = $T.getListenersByClass($T.class, $N)",
-                                listOfListeners, ClassNames.EventsHelper, listenerClassTypeName, "mTag")
+                        .addStatement("$T listeners = $N.getListenersByClass($T.class, $N)",
+                                listOfListeners, "mEventsHelper", listenerClassTypeName, "mTag")
                         .beginControlFlow("for ($T listener : listeners)", listenerClassTypeName)
                         .addStatement(invokeStatement.toString())
                         .endControlFlow()
@@ -140,6 +164,7 @@ public class EventsAnnotationProcessor extends AbstractProcessor {
             }
         }
 
+        // Write helper class to java file
         try {
             JavaFile.builder("moe.feng.common.eventshelper", classBuilder.build())
                     .build()

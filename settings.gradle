@@ -1,1 +1,1 @@
-include ':app', ':events-annotation', ':events-compiler', ':events-library-core'
+include ':app', ':events-annotation', ':events-compiler', ':events-library-core', ':events-library-ktx'

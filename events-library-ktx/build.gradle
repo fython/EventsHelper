@@ -1,0 +1,71 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+apply plugin: 'com.github.dcendents.android-maven'
+apply plugin: 'com.jfrog.bintray'
+
+android {
+    compileSdkVersion 28
+
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs += 'src/main/kotlin'
+        }
+    }
+}
+
+dependencies {
+    implementation project(":events-annotation")
+    annotationProcessor project(":events-compiler")
+    implementation project(":events-library-core")
+    implementation 'androidx.annotation:annotation:1.0.2'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+}
+
+ext {
+    publishedGroupId = 'moe.feng.common.eventshelper'
+
+    bintrayRepo = 'EventsHelper'
+    bintrayName = project.name
+
+    libraryName = 'EventsHelper Kotlin Extensions'
+    artifact = project.name
+
+    libraryDescription = 'Kotlin Extensions for EventsHelper'
+
+    siteUrl = 'https://github.com/fython/EventsHelper'
+    gitUrl = 'https://github.com/fython/EventsHelper.git'
+
+    libraryVersion = project.rootProject.version
+
+    developerId = 'fython'
+    developerName = 'Fung Gwo'
+    developerEmail = 'fythonx@gmail.com'
+
+    licenseName = 'The Apache Software License, Version 2.0'
+    licenseUrl = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+    allLicenses = ["Apache-2.0"]
+}
+
+apply from: project.rootProject.file('bintray.gradle')

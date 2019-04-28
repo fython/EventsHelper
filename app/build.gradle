@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
     compileSdkVersion 28
@@ -27,7 +28,10 @@ dependencies {
 
     implementation project(':events-annotation')
     implementation project(':events-library-core')
+    implementation project(':events-library-ktx')
     annotationProcessor project(':events-compiler')
+
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
     implementation 'androidx.appcompat:appcompat:1.0.2'
     testImplementation 'junit:junit:4.12'
