@@ -1,5 +1,6 @@
 package moe.feng.common.eventshelper;
 
+import android.app.Application;
 import android.content.Context;
 import android.os.Handler;
 import android.util.Pair;
@@ -46,10 +47,18 @@ public final class EventsHelper {
      * @return an instance of EventsHelper
      */
     @NonNull
-    public static EventsHelper getInstance(@NonNull Context context) {
+    public static EventsHelper getInstance(@Nullable Context context) {
         synchronized (sLock) {
             if (sInstance == null) {
-                sInstance = new EventsHelper(context);
+                if (context == null) {
+                    throw new NullPointerException(
+                            "EventsHelper instance hasn't been initialized.");
+                }
+                Context applicationContext = context;
+                if (!(context instanceof Application)) {
+                    applicationContext = context.getApplicationContext();
+                }
+                sInstance = new EventsHelper(applicationContext);
             }
             return sInstance;
         }

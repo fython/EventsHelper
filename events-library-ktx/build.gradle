@@ -39,7 +39,7 @@ dependencies {
     implementation project(":events-annotation")
     annotationProcessor project(":events-compiler")
     implementation project(":events-library-core")
-    implementation 'androidx.annotation:annotation:1.0.2'
+    implementation 'androidx.annotation:annotation:1.1.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 }
 
